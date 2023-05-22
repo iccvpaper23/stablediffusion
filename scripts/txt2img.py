@@ -1,4 +1,5 @@
-import argparse, os
+import argparse, os, time
+from datetime import timedelta 
 import cv2
 import torch
 import numpy as np
@@ -212,6 +213,8 @@ def put_watermark(img, wm_encoder=None):
 
 
 def main(opt):
+    time_init_model, time_sample, time_save, time_grid = 0, 0, 0, 0
+    start_timer_init_model = time.time()
     seed_everything(opt.seed)
 
     config = OmegaConf.load(f"{opt.config}")
@@ -224,6 +227,9 @@ def main(opt):
         sampler = DPMSolverSampler(model, device=device)
     else:
         sampler = DDIMSampler(model, device=device)
+
+    end_timer_init_model = time.time()
+    time_init_model = end_timer_init_model - start_timer_init_model
 
     os.makedirs(opt.outdir, exist_ok=True)
     outpath = opt.outdir
@@ -337,6 +343,7 @@ def main(opt):
             all_samples = list()
             for n in trange(opt.n_iter, desc="Sampling"):
                 for prompts in tqdm(data, desc="data"):
+                    start_timer_sampling = time.time()
                     uc = None
                     if opt.scale != 1.0:
                         uc = model.get_learned_conditioning(batch_size * [""])
@@ -357,6 +364,10 @@ def main(opt):
                     x_samples = model.decode_first_stage(samples)
                     x_samples = torch.clamp((x_samples + 1.0) / 2.0, min=0.0, max=1.0)
 
+                    end_timer_sampling = time.time()
+                    time_sample = end_timer_sampling - start_timer_sampling
+
+                    start_timer_save_sample = time.time()
                     for x_sample in x_samples:
                         x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
                         img = Image.fromarray(x_sample.astype(np.uint8))
@@ -364,9 +375,11 @@ def main(opt):
                         img.save(os.path.join(sample_path, f"{base_count:05}.png"))
                         base_count += 1
                         sample_count += 1
-
+                    end_timer_save_sample = time.time()
+                    time_save = end_timer_save_sample - start_timer_save_sample
                     all_samples.append(x_samples)
 
+            start_timer_save_grid = time.time()
             # additionally, save as grid
             grid = torch.stack(all_samples, 0)
             grid = rearrange(grid, 'n b c h w -> (n b) c h w')
@@ -378,9 +391,18 @@ def main(opt):
             grid = put_watermark(grid, wm_encoder)
             grid.save(os.path.join(outpath, f'grid-{grid_count:04}.png'))
             grid_count += 1
+            end_timer_save_grid = time.time()
+
+            time_grid = end_timer_save_grid - start_timer_save_grid
 
     print(f"Your samples are ready and waiting for you here: \n{outpath} \n"
           f" \nEnjoy.")
+    
+    print(f"Time consumed by step was: \n"
+          f"Model initialization :::: {timedelta(seconds=(time_init_model))}"
+          f"Sampling             :::: {timedelta(seconds=(time_sample))}"
+          f"Saving Samples       :::: {timedelta(seconds=(time_save))}"
+          f"Saving Grid          :::: {timedelta(seconds=(time_grid))}")
 
 
 if __name__ == "__main__":
