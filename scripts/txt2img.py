@@ -399,10 +399,10 @@ def main(opt):
           f" \nEnjoy.")
     
     print(f"Time consumed by step was: \n"
-          f"Model initialization :::: {timedelta(seconds=(time_init_model))}"
-          f"Sampling             :::: {timedelta(seconds=(time_sample))}"
-          f"Saving Samples       :::: {timedelta(seconds=(time_save))}"
-          f"Saving Grid          :::: {timedelta(seconds=(time_grid))}")
+          f"Model initialization :::: {timedelta(seconds=(time_init_model))} seconds\n"
+          f"Sampling             :::: {timedelta(seconds=(time_sample))} seconds\n"
+          f"Saving Samples       :::: {timedelta(seconds=(time_save))} seconds\n"
+          f"Saving Grid          :::: {timedelta(seconds=(time_grid))} seconds\n")
 
 
 if __name__ == "__main__":
